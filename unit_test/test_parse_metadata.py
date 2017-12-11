@@ -1,14 +1,12 @@
-from tiny_reader import TinyTrainReader
+from tiny_reader import TinyImgReader
 import os
 
 tiny_image_net_200_dir = '/src/dataset/imagenet/tiny-imagenet-200'
-train_dir = os.path.join(tiny_image_net_200_dir, 'train')
-val_ans = os.path.join(tiny_image_net_200_dir, 'val/val_annotations.txt')
-reader = TinyTrainReader(train_dir)
+reader = TinyImgReader(tiny_image_net_200_dir)
 
 
 def test_get_train_img_label_code_list():
-    code_list = reader.get_train_img_label_code_list()
+    code_list = reader.get_label_code_list()
     assert(code_list.count('n01443537') == 1)
     assert(code_list.count('n02892201') == 1)
     assert(code_list.count('n04149813') == 1)
@@ -22,11 +20,6 @@ def test_get_num_class():
 def test_data_path():
     for i in range(reader.get_num_class()):
         assert(len(reader.all_img_name_list[i]) == 500)
-
-
-def test_get_img_dir():
-    assert(reader.get_img_dir(0) == '/src/dataset/imagenet/tiny-imagenet-200/train/n01443537/images')
-
 
 def test_generate_data():
     for idx, data in enumerate(reader.generate_data(3)):
