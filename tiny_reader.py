@@ -3,11 +3,21 @@ import numpy as np
 import cv2
 from numpy.random import randint
 from keras.utils import np_utils
+import h5py
 
 
 data_count_per_label = 500
 x_train_shape = [200 * 500, 64, 64, 3]
 img_shape = [64, 64, 3]
+
+
+def import_hdf5(hdf5_path):
+    h5f = h5py.File(hdf5_path, 'r')
+    x_train = h5f['x_train'][:]
+    y_train = h5f['y_train'][:]
+    label_codes = h5f['label_codes_np'][:]
+    h5f.close()
+    return x_train, y_train, label_codes
 
 
 class TinyTrainReader:
@@ -35,8 +45,8 @@ class TinyTrainReader:
 
     def load_all_img(self):
         load_img_idx = 0
-        x_train = np.zeros(x_train_shape)
-        y_train = np.zeros(self.num_label * data_count_per_label)
+        x_train = np.zeros(x_train_shape, dtype=np.uint8)
+        y_train = np.zeros(self.num_label * data_count_per_label, dtype=np.uint8)
 
         for idx, img_name_list in enumerate(self.all_img_name_list):
             print('Load label: ', idx, self.label_codes[idx], '...')
@@ -47,8 +57,7 @@ class TinyTrainReader:
 
             for img_name in img_name_list:
                 img_path = os.path.join(img_dir, img_name)
-                img = cv2.imread(img_path)
-                x_train[load_img_idx] = img
+                x_train[load_img_idx] = cv2.imread(img_path)
                 load_img_idx += 1
         return x_train, y_train
 
@@ -60,6 +69,19 @@ class TinyTrainReader:
             return cv2.imread(os.path.join(img_dir, img_name)) / 255
         else:
             return cv2.imread(os.path.join(img_dir, img_name))
+
+    def export_hdf5(self):
+        x_train, y_train = self.load_all_img()
+
+        label_codes_np = np.chararray(self.num_label, 10)
+        for i, name in enumerate(self.label_codes):
+            label_codes_np[i] = self.label_codes[i]
+
+        h5f = h5py.File('training_data.h5', 'w')
+        h5f.create_dataset('x_train', data=x_train, compression="gzip", compression_opts=9)
+        h5f.create_dataset('y_train', data=y_train, compression="gzip", compression_opts=9)
+        h5f.create_dataset('label_codes_np', data=label_codes_np, compression="gzip", compression_opts=9)
+        h5f.close()
 
     def generate_data(self, batch_size):
         while 1:
