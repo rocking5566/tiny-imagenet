@@ -8,8 +8,6 @@ import h5py
 num_train_data = 200 * 500
 num_val_data = 10000
 data_count_per_label = 500
-x_train_shape = [num_train_data, 64, 64, 3]
-x_val_shape = [num_val_data, 64, 64, 3]
 img_shape = [64, 64, 3]
 
 
@@ -47,8 +45,14 @@ class TinyImgReader:
     def __get_train_img_dir(self, label):
         return os.path.join(self.tiny_root_path, "train", self.label_codes[label], 'images')
 
-    def load_all_val_img(self):
+    def load_all_val_img(self, scale_size=None):
         load_img_idx = 0
+
+        if scale_size is None:
+            x_val_shape = [num_val_data, 64, 64, 3]
+        else:
+            x_val_shape = [num_val_data, scale_size[0], scale_size[1], 3]
+
         code_to_label = dict(zip(self.label_codes, range(self.num_label)))
         val_annotations_path = os.path.join(self.tiny_root_path, 'val', 'val_annotations.txt')
         val_annotations_file = open(val_annotations_path, 'r')
@@ -62,15 +66,28 @@ class TinyImgReader:
                 print('Load validation image: ', load_img_idx, '/', num_val_data)
             pieces = line.strip().split()
             img_path = os.path.join(val_img_dir, pieces[0])
-            x_val[load_img_idx] = cv2.imread(img_path)
+            img = cv2.imread(img_path)
+
+            if scale_size is not None:
+                x_val[load_img_idx] = cv2.resize(img, scale_size)
+
             y_val[load_img_idx] = code_to_label[pieces[1]]
             load_img_idx += 1
+
+        print('Load validation data finished!')
         return x_val, y_val
 
-    def load_all_train_img(self):
+    def load_all_train_img(self, scale_size=None):
         load_img_idx = 0
+
+        if scale_size is None:
+            x_train_shape = [num_train_data, 64, 64, 3]
+        else:
+            x_train_shape = [num_train_data, scale_size[0], scale_size[1], 3]
+
         x_train = np.zeros(x_train_shape, dtype=np.uint8)
         y_train = np.zeros(num_train_data, dtype=np.uint8)
+        print(x_train.shape)
 
         for idx, img_name_list in enumerate(self.all_img_name_list):
             print('Load label: ', idx, self.label_codes[idx], '...')
@@ -81,8 +98,14 @@ class TinyImgReader:
 
             for img_name in img_name_list:
                 img_path = os.path.join(img_dir, img_name)
-                x_train[load_img_idx] = cv2.imread(img_path)
+                img = cv2.imread(img_path)
+
+                if scale_size is not None:
+                    x_train[load_img_idx] = cv2.resize(img, scale_size)
+
                 load_img_idx += 1
+
+        print('Load training data finished!')
         return x_train, y_train
 
     # index have to smaller than data count.
@@ -94,15 +117,19 @@ class TinyImgReader:
         else:
             return cv2.imread(os.path.join(img_dir, img_name))
 
-    def export_hdf5(self):
-        x_train, y_train = self.load_all_train_img()
-        x_val, y_val = self.load_all_val_img()
+    def export_hdf5(self, scale_size=None):
+        x_train, y_train = self.load_all_train_img(scale_size)
+        x_val, y_val = self.load_all_val_img(scale_size)
 
         label_codes_np = np.chararray(self.num_label, 10)
         for i, name in enumerate(self.label_codes):
             label_codes_np[i] = self.label_codes[i]
 
-        h5f = h5py.File('training_data.h5', 'w')
+        if scale_size is not None:
+            h5f = h5py.File('training_data_' + str(scale_size[0]) + '_' + str(scale_size[1]) + '.h5', 'w')
+        else:
+            h5f = h5py.File('training_data.h5', 'w')
+
         h5f.create_dataset('x_train', data=x_train, compression="gzip", compression_opts=9)
         h5f.create_dataset('y_train', data=y_train, compression="gzip", compression_opts=9)
         h5f.create_dataset('x_val', data=x_val, compression="gzip", compression_opts=9)
